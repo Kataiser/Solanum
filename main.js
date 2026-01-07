@@ -1,6 +1,6 @@
 const DEBUG = true;
 const ENGINE_COUNT = 16;
-const SEARCH_TIME = 10000;
+const SEARCH_TIME = 8000;
 const TOTAL_HASH = 256;
 
 
@@ -21,10 +21,7 @@ function initEngineWorkers() {
 function engineStartThink() {
     engineDebugLog("thonk");
     evaluatedPositions = [];
-
-    for (let i = 0; i < ENGINE_COUNT; i++) {
-        workers[i].reset();
-    }
+    workers.forEach((worker) => worker.reset());
 
     for (let i = 0; i < auxillaryBoardArray.length; i++) {
         let auxBoard = auxillaryBoardArray[i];
@@ -36,9 +33,70 @@ function engineStartThink() {
         workers[i % ENGINE_COUNT].addPosition(i + 10000, startFEN, moves);
     }
 
-    for (let i = 0; i < ENGINE_COUNT; i++) {
-        workers[i].go(SEARCH_TIME);
+    workers.forEach((worker) => worker.go(SEARCH_TIME));
+}
+
+// called from a worker each time it finishes
+function workerCompleted() {
+    let allCompleted = true;
+
+    workers.forEach((worker) => {
+        if (!worker.completed) {
+            allCompleted = false
+        }
+    });
+
+    if (allCompleted) {
+        engineFinishThink();
     }
+}
+
+// all workers have finished
+function engineFinishThink() {
+    engineDebugLog("All workers have finished");
+    let mainBoardMoves = [];
+    let mainBoardMovesLen = 0;
+    let engineMoveEval = -300;
+    let engineMoveRaw = null;
+    let engineMoveCoords = null;
+
+    // reverse the perspective: group positions by main board move
+    evaluatedPositions.forEach((position) => {
+        if (!mainBoardMoves[position.bestMoveRaw]) {
+            mainBoardMovesLen++;
+            mainBoardMoves[position.bestMoveRaw] = {
+                lowestEval: 300,
+                moveCoords: position.bestMoveCoords,
+                positions: []
+            };
+        }
+
+        mainBoardMoves[position.bestMoveRaw].positions.push(position);
+    });
+
+    engineDebugLog(`Collected ${mainBoardMovesLen} main board moves`);
+
+    // worst-case minimax across superpositions
+    for (let mainBoardMove in mainBoardMoves) {
+        let mainBoardMoveData = mainBoardMoves[mainBoardMove];
+
+        // step 1: get the lowest eval for each move
+        mainBoardMoveData.positions.forEach((position) => {
+            if (position.eval < mainBoardMoveData.lowestEval) {
+                mainBoardMoveData.lowestEval = position.eval;
+            }
+        })
+
+        // step 2: select the highest of the lowest evals
+        if (mainBoardMoveData.lowestEval > engineMoveEval) {
+            engineMoveEval = mainBoardMoveData.lowestEval;
+            engineMoveRaw = mainBoardMove;
+            engineMoveCoords = mainBoardMoveData.moveCoords;
+        }
+    }
+
+    engineDebugLog(`Playing ${engineMoveRaw} [${engineMoveCoords}], eval ${engineMoveEval}`);
+    makeEngineMove(engineMoveCoords);
 }
 
 function makeEngineMove(move) {

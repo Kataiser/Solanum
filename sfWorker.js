@@ -15,14 +15,16 @@ class sfWorker {
         this.currentPositionIndex = 0;
         this.eval = 0;
         this.positionSearchTime = 0;
+        this.completed = false;
     }
 
-    addPosition(posIndex, startFEN, moves) {
+    addPosition(posID, startFEN, moves) {
         this.positionQueue.push({
-            posIndex: posIndex,
+            posID: posID,
             startFEN: startFEN,
             moves: moves,
-            bestMove: null,
+            bestMoveRaw: null,
+            bestMoveCoords: null,
             eval: null
         });
     }
@@ -70,9 +72,10 @@ class sfWorker {
     // callback from SF finishing a search
     onComplete(result) {
         this.workerDebugLog(`Result: ${result} (eval ${this.eval})`);
-        let bestmoveMatch = result.match(/^bestmove ([a-h][1-8])([a-h][1-8])([qrbn])?/);  // intentionally ignore promotions
+        let bestmoveMatch = result.match(/^bestmove ([a-h][1-8][a-h][1-8])([qrbn])?/);  // intentionally ignore promotions
         let position = this.positionQueue[this.currentPositionIndex];
-        position.bestMove = convertMove(bestmoveMatch[1], bestmoveMatch[2]);
+        position.bestMoveRaw = bestmoveMatch[1];
+        position.bestMoveCoords = convertMove(bestmoveMatch[1].slice(0, 2), bestmoveMatch[1].slice(2));
         position.eval = this.eval;
         evaluatedPositions.push(position);
         this.currentPositionIndex++;
@@ -86,6 +89,8 @@ class sfWorker {
 
     allComplete() {
         this.workerDebugLog(`Completed evaluating ${this.positionQueue.length} positions`);
+        this.completed = true;
+        workerCompleted();
     }
 
     workerDebugLog(log) {
