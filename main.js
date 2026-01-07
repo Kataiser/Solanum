@@ -7,6 +7,7 @@ const TOTAL_HASH = 256;
 // ENGINE STARTUP
 
 let workers = [];
+let evaluatedPositions = [];
 
 function initEngineWorkers() {
     for (let i = 0; i < ENGINE_COUNT; i++) {
@@ -17,14 +18,27 @@ function initEngineWorkers() {
 
 // ENGINE CORE
 
-function engineThink() {
+function engineStartThink() {
     engineDebugLog("thonk");
+    evaluatedPositions = [];
 
-    let auxBoard = auxillaryBoardArray[0];
-    let startPos = auxBoard.string;
-    let startFEN = `${startPos.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${startPos} w KkQq - 0 1`;
-    let moves = auxillaryBoardArray[0].moves.join(" ");
-    workers[0].go(startFEN, moves);
+    for (let i = 0; i < ENGINE_COUNT; i++) {
+        workers[i].reset();
+    }
+
+    for (let i = 0; i < auxillaryBoardArray.length; i++) {
+        let auxBoard = auxillaryBoardArray[i];
+        let startPos = auxBoard.string;
+        let startFEN = `${startPos.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${startPos} w KkQq - 0 1`;
+        let moves = auxBoard.moves.join(" ");
+
+        // distribute positions across workers
+        workers[i % ENGINE_COUNT].addPosition(i + 10000, startFEN, moves);
+    }
+
+    for (let i = 0; i < ENGINE_COUNT; i++) {
+        workers[i].go(SEARCH_TIME);
+    }
 }
 
 function makeEngineMove(move) {
