@@ -1,21 +1,23 @@
 class sfWorker {
-    constructor(id) {
+    constructor(id, hash) {
         this.id = id;
         this.reset();
 
         this.engine = loadEngine("/superposition-chess/js/solanum/stockfish.js/stockfish-17.1-asm-341ff22.js", function () {});
         this.engine.send("uci");
         this.engine.send("setoption name UCI_Chess960 value true");
+        this.engine.send(`setoption name Hash value ${hash}`);
         this.engine.send("ucinewgame");
         this.engine.send("isready");
+        this.workerDebugLog(`Started with hash ${hash}`);
     }
 
     reset() {
         this.positionQueue = [];
         this.currentPositionIndex = 0;
         this.eval = 0;
+        this.hashfull = 0;
         this.positionSearchTime = 0;
-        this.completed = false;
     }
 
     addPosition(posID, startFEN, moves) {
@@ -36,8 +38,6 @@ class sfWorker {
             this.positionSearchTime = Math.floor(totalSearchTime / this.positionQueue.length);
             this.workerDebugLog(`Going for ${this.positionSearchTime} ms each for ${this.positionQueue.length} positions`);
             this.goEach();
-        } else {
-            this.workerDebugLog("No positions to evaluate");
         }
     }
 
@@ -61,21 +61,33 @@ class sfWorker {
     onLine(line) {
         let matchCp = line.match(/score cp (-?\d+)/);
         let matchMate = line.match(/score mate (\d+)/);
+        let matchHashfull = line.match(/hashfull (\d+)/);
 
         if (matchCp) {
             this.eval = parseInt(matchCp[1]) / 100;
         } else if (matchMate) {
-            this.eval = 200;
+            this.eval = 200 - Math.log(parseInt(matchMate[1]));
+        }
+
+        if (matchHashfull) {
+            this.hashfull = parseInt(matchHashfull[1]) / 10;
         }
     }
 
     // callback from SF finishing a search
     onComplete(result) {
-        this.workerDebugLog(`Result: ${result} (eval ${this.eval})`);
-        let bestmoveMatch = result.match(/^bestmove ([a-h][1-8][a-h][1-8])([qrbn])?/);  // intentionally ignore promotions
         let position = this.positionQueue[this.currentPositionIndex];
-        position.bestMoveRaw = bestmoveMatch[1];
-        position.bestMoveCoords = convertMove(bestmoveMatch[1].slice(0, 2), bestmoveMatch[1].slice(2));
+
+        if (result === "bestmove (none)") {  // checkmate against playing side
+            this.workerDebugLog("Result: checkmate");
+            this.eval = -250;
+        } else {
+            this.workerDebugLog(`Result: ${result} (eval ${this.eval}, hashfull ${this.hashfull}%)`);
+            let bestmoveMatch = result.match(/^bestmove ([a-h][1-8][a-h][1-8])([qrbn])?/);  // intentionally ignore promotions
+            position.bestMoveRaw = bestmoveMatch[1];
+            position.bestMoveCoords = convertMove(bestmoveMatch[1].slice(0, 2), bestmoveMatch[1].slice(2));
+        }
+
         position.eval = this.eval;
         evaluatedPositions.push(position);
         this.currentPositionIndex++;

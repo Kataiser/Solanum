@@ -1,17 +1,19 @@
 const DEBUG = true;
 const ENGINE_COUNT = 16;
-const SEARCH_TIME = 8000;
-const TOTAL_HASH = 256;
+const SEARCH_TIME = 5000;
+const TOTAL_HASH = 512;
 
 
 // ENGINE STARTUP
 
 let workers = [];
+let workersCompleted = 0;
+let workersRunning = 0;
 let evaluatedPositions = [];
 
 function initEngineWorkers() {
     for (let i = 0; i < ENGINE_COUNT; i++) {
-        workers[i] = new sfWorker(i);
+        workers[i] = new sfWorker(i, Math.round(TOTAL_HASH / ENGINE_COUNT));
     }
 }
 
@@ -20,6 +22,7 @@ function initEngineWorkers() {
 
 function engineStartThink() {
     engineDebugLog("thonk");
+    workersCompleted = 0;
     evaluatedPositions = [];
     workers.forEach((worker) => worker.reset());
 
@@ -33,20 +36,17 @@ function engineStartThink() {
         workers[i % ENGINE_COUNT].addPosition(i + 10000, startFEN, moves);
     }
 
+    workersRunning = Math.min(auxillaryBoardArray.length, ENGINE_COUNT);
+    engineDebugLog(`Analyzing ${auxillaryBoardArray.length} auxilliary positions across ${workersRunning} workers`);
     workers.forEach((worker) => worker.go(SEARCH_TIME));
 }
 
 // called from a worker each time it finishes
 function workerCompleted() {
-    let allCompleted = true;
+    workersCompleted++;
+    engineDebugLog(`Workers completed: ${workersCompleted}/${workersRunning}`);
 
-    workers.forEach((worker) => {
-        if (!worker.completed) {
-            allCompleted = false
-        }
-    });
-
-    if (allCompleted) {
+    if (workersCompleted === workersRunning) {
         engineFinishThink();
     }
 }
@@ -95,8 +95,10 @@ function engineFinishThink() {
         }
     }
 
-    engineDebugLog(`Playing ${engineMoveRaw} [${engineMoveCoords}], eval ${engineMoveEval}`);
-    makeEngineMove(engineMoveCoords);
+    if (engineMoveRaw) {
+        engineDebugLog(`Playing ${engineMoveRaw} [${engineMoveCoords}], eval ${engineMoveEval}`);
+        makeEngineMove(engineMoveCoords);
+    }
 }
 
 function makeEngineMove(move) {
