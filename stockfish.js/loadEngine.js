@@ -2,7 +2,7 @@ var loadEngine = (function ()
 {
     "use strict";
     
-    var debugging = true;
+    var debugging = false;
     
     function spawn_worker(path, options)
     {
