@@ -1,7 +1,7 @@
 const DEBUG = true;
-const ENGINE_COUNT = 16;
-const SEARCH_TIME = 5000;
-const TOTAL_HASH = 512;
+const ENGINE_COUNT = 14;
+const SEARCH_TIME = 8000;
+const TOTAL_HASH = 128;
 const MAX_THREADS = window.navigator.hardwareConcurrency - 4;
 const CONTEMPT = 1;
 
@@ -16,7 +16,7 @@ let mainBoardMoves = [];
 
 function initEngineWorkers() {
     for (let i = 0; i < ENGINE_COUNT; i++) {
-        workers[i] = new sfWorker(i, Math.round(TOTAL_HASH / ENGINE_COUNT));
+        workers[i] = new sfWorker(i);
     }
 }
 
@@ -29,6 +29,7 @@ function engineStartThink() {
     evaluatedPositions = [];
     workers.forEach((worker) => worker.reset());
     workersRunning = Math.min(auxillaryBoardArray.length, ENGINE_COUNT);
+    let workerHash = Math.round(TOTAL_HASH / workersRunning);
 
     for (let i = 0; i < auxillaryBoardArray.length; i++) {
         let auxBoard = auxillaryBoardArray[i];
@@ -38,6 +39,7 @@ function engineStartThink() {
 
         // distribute positions across workers
         workers[i % ENGINE_COUNT].addPosition(i + 10000, startFEN, moves);
+        workers[i % ENGINE_COUNT].setHash(workerHash);
     }
 
     // set thread count per worker
@@ -56,7 +58,7 @@ function engineStartThink() {
         }
     }
 
-    engineDebugLog(`Analyzing ${auxillaryBoardArray.length} auxiliary positions across ${workersRunning} workers`);
+    engineDebugLog(`Analyzing ${auxillaryBoardArray.length} auxiliary positions across ${workersRunning} workers (hash ${workerHash})`);
     workers.forEach((worker) => worker.go(SEARCH_TIME));
 }
 
@@ -96,7 +98,7 @@ function engineFinishThink() {
     });
 
     engineDebugLog(`Collected ${mainBoardMovesLen} main board moves`);
-    focusOnMates();
+    focusOnMates(mainBoardMovesLen);
 
     // worst-case minimax across superpositions
     for (let mainBoardMove in mainBoardMoves) {
@@ -132,20 +134,21 @@ function engineFinishThink() {
 }
 
 // if any worker found any mate, then we know to remove moves that don't have a mate
-function focusOnMates(){
-    if (mainBoardMoves.length < 2 || workers.some(worker => worker.foundAnyMate)) {
+function focusOnMates(mainBoardMovesLen){
+    if (mainBoardMovesLen < 2 || !workers.some(worker => worker.foundAnyMate)) {
         return;
     }
 
     for (let mainBoardMove in mainBoardMoves) {
         let mainBoardMoveData = mainBoardMoves[mainBoardMove];
 
-        if (mainBoardMoveData.positions.some(position => position.isMate)) {
+        if (!mainBoardMoveData.positions.some(position => position.isMate)) {
             delete mainBoardMoves[mainBoardMove];
+            mainBoardMovesLen--;
         }
     }
 
-    engineDebugLog(`Trimmed to ${mainBoardMoves.length} main board moves with checkmates`);
+    engineDebugLog(`Trimmed to ${mainBoardMovesLen} main board moves with checkmates`);
 }
 
 function makeEngineMove(move) {

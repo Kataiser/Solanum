@@ -1,15 +1,14 @@
 class sfWorker {
-    constructor(id, hash) {
+    constructor(id) {
         this.id = id;
         this.reset();
 
         this.engine = loadEngine("/superposition-chess/js/solanum/stockfish.js/stockfish-17.1-asm-341ff22.js", function () {});
         this.engine.send("uci");
         this.engine.send("setoption name UCI_Chess960 value true");
-        this.engine.send(`setoption name Hash value ${hash}`);
         this.engine.send("ucinewgame");
         this.engine.send("isready");
-        this.workerDebugLog(`Started with hash ${hash}`);
+        this.workerDebugLog("Started engine");
     }
 
     reset() {
@@ -20,6 +19,10 @@ class sfWorker {
         this.positionSearchTime = 0;
         this.threads = 1;
         this.foundAnyMate = false;
+    }
+
+    setHash(hash) {
+        this.engine.send(`setoption name Hash value ${hash}`);
     }
 
     setThreads(threads) {
@@ -66,6 +69,7 @@ class sfWorker {
         );
     }
 
+    // callback from any SF line (after go)
     onLine(line) {
         let matchCp = line.match(/score cp (-?\d+)/);
         let matchMate = line.match(/score mate (\d+)/);
