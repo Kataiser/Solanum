@@ -18,6 +18,13 @@ class sfWorker {
         this.eval = 0;
         this.hashfull = 0;
         this.positionSearchTime = 0;
+        this.threads = 1;
+        this.foundAnyMate = false;
+    }
+
+    setThreads(threads) {
+        this.threads = threads;
+        // this.engine.send(`setoption name Threads value ${this.threads}`);
     }
 
     addPosition(posID, startFEN, moves) {
@@ -27,7 +34,8 @@ class sfWorker {
             moves: moves,
             bestMoveRaw: null,
             bestMoveCoords: null,
-            eval: null
+            eval: null,
+            isMate: false
         });
     }
 
@@ -36,7 +44,7 @@ class sfWorker {
     go(totalSearchTime) {
         if (this.positionQueue.length !== 0) {
             this.positionSearchTime = Math.floor(totalSearchTime / this.positionQueue.length);
-            this.workerDebugLog(`Going for ${this.positionSearchTime} ms each for ${this.positionQueue.length} positions`);
+            this.workerDebugLog(`Going for ${this.positionSearchTime} ms each for ${this.positionQueue.length} positions using ${this.threads} threads`);
             this.goEach();
         }
     }
@@ -67,6 +75,8 @@ class sfWorker {
             this.eval = parseInt(matchCp[1]) / 100;
         } else if (matchMate) {
             this.eval = 200 - Math.log(parseInt(matchMate[1]));
+            this.positionQueue[this.currentPositionIndex].isMate = true;
+            this.foundAnyMate = true;
         }
 
         if (matchHashfull) {

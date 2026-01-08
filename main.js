@@ -2,6 +2,8 @@ const DEBUG = true;
 const ENGINE_COUNT = 16;
 const SEARCH_TIME = 5000;
 const TOTAL_HASH = 512;
+const MAX_THREADS = window.navigator.hardwareConcurrency - 4;
+const CONTEMPT = 1;
 
 
 // ENGINE STARTUP
@@ -10,6 +12,7 @@ let workers = [];
 let workersCompleted = 0;
 let workersRunning = 0;
 let evaluatedPositions = [];
+let mainBoardMoves = [];
 
 function initEngineWorkers() {
     for (let i = 0; i < ENGINE_COUNT; i++) {
@@ -25,19 +28,35 @@ function engineStartThink() {
     workersCompleted = 0;
     evaluatedPositions = [];
     workers.forEach((worker) => worker.reset());
+    workersRunning = Math.min(auxillaryBoardArray.length, ENGINE_COUNT);
 
     for (let i = 0; i < auxillaryBoardArray.length; i++) {
         let auxBoard = auxillaryBoardArray[i];
         let startPos = auxBoard.string;
         let startFEN = `${startPos.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${startPos} w KkQq - 0 1`;
-        let moves = auxBoard.moves.join(" ");
+        let moves = auxBoard.moves.map(s => s.replace(/^[BKNPQR]/, "")).join(" ");
 
         // distribute positions across workers
         workers[i % ENGINE_COUNT].addPosition(i + 10000, startFEN, moves);
     }
 
-    workersRunning = Math.min(auxillaryBoardArray.length, ENGINE_COUNT);
-    engineDebugLog(`Analyzing ${auxillaryBoardArray.length} auxilliary positions across ${workersRunning} workers`);
+    // set thread count per worker
+    if (workersRunning >= MAX_THREADS) {
+        workers.forEach((worker) => worker.setThreads(1));
+    } else {
+        let baseThreads = Math.floor(MAX_THREADS / workersRunning);
+        let remainderThreads = MAX_THREADS % workersRunning;
+
+        for (let i = 0; i < workersRunning; i++) {
+            if (i < remainderThreads) {
+                workers[i].setThreads(baseThreads + 1);
+            } else {
+                workers[i].setThreads(baseThreads);
+            }
+        }
+    }
+
+    engineDebugLog(`Analyzing ${auxillaryBoardArray.length} auxiliary positions across ${workersRunning} workers`);
     workers.forEach((worker) => worker.go(SEARCH_TIME));
 }
 
@@ -54,7 +73,7 @@ function workerCompleted() {
 // all workers have finished
 function engineFinishThink() {
     engineDebugLog("All workers have finished");
-    let mainBoardMoves = [];
+    mainBoardMoves = [];
     let mainBoardMovesLen = 0;
     let engineMoveEval = -300;
     let engineMoveRaw = null;
@@ -66,6 +85,8 @@ function engineFinishThink() {
             mainBoardMovesLen++;
             mainBoardMoves[position.bestMoveRaw] = {
                 lowestEval: 300,
+                averageEval: 0,
+                weightedEval: 0,
                 moveCoords: position.bestMoveCoords,
                 positions: []
             };
@@ -75,30 +96,56 @@ function engineFinishThink() {
     });
 
     engineDebugLog(`Collected ${mainBoardMovesLen} main board moves`);
+    focusOnMates();
 
     // worst-case minimax across superpositions
     for (let mainBoardMove in mainBoardMoves) {
         let mainBoardMoveData = mainBoardMoves[mainBoardMove];
+        let evalSum = 0;
 
         // step 1: get the lowest eval for each move
         mainBoardMoveData.positions.forEach((position) => {
+            evalSum += position.eval;
+
             if (position.eval < mainBoardMoveData.lowestEval) {
                 mainBoardMoveData.lowestEval = position.eval;
             }
-        })
+        });
 
-        // step 2: select the highest of the lowest evals
-        if (mainBoardMoveData.lowestEval > engineMoveEval) {
-            engineMoveEval = mainBoardMoveData.lowestEval;
+        mainBoardMoveData.averageEval = (evalSum / mainBoardMoveData.positions.length).toFixed(3);
+        mainBoardMoveData.weightedEval = (mainBoardMoveData.lowestEval +
+            ((CONTEMPT * mainBoardMoveData.positions.length) / 1000) +
+            ((CONTEMPT * mainBoardMoveData.averageEval) / 10)).toFixed(3);
+
+        // step 2: select the highest of the lowest (weighted) evals
+        if (mainBoardMoveData.weightedEval > engineMoveEval) {
+            engineMoveEval = mainBoardMoveData.weightedEval;
             engineMoveRaw = mainBoardMove;
             engineMoveCoords = mainBoardMoveData.moveCoords;
         }
     }
 
-    if (engineMoveRaw) {
+    if (engineMoveCoords !== null) {
         engineDebugLog(`Playing ${engineMoveRaw} [${engineMoveCoords}], eval ${engineMoveEval}`);
         makeEngineMove(engineMoveCoords);
     }
+}
+
+// if any worker found any mate, then we know to remove moves that don't have a mate
+function focusOnMates(){
+    if (mainBoardMoves.length < 2 || workers.some(worker => worker.foundAnyMate)) {
+        return;
+    }
+
+    for (let mainBoardMove in mainBoardMoves) {
+        let mainBoardMoveData = mainBoardMoves[mainBoardMove];
+
+        if (mainBoardMoveData.positions.some(position => position.isMate)) {
+            delete mainBoardMoves[mainBoardMove];
+        }
+    }
+
+    engineDebugLog(`Trimmed to ${mainBoardMoves.length} main board moves with checkmates`);
 }
 
 function makeEngineMove(move) {
