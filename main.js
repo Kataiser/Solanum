@@ -77,7 +77,7 @@ function engineFinishThink() {
     engineDebugLog("All workers have finished");
     mainBoardMoves = [];
     let mainBoardMovesLen = 0;
-    let engineMoveEval = -300;
+    let engineMoveEval = -1000;
     let engineMoveRaw = null;
     let engineMoveCoords = null;
 
@@ -86,7 +86,7 @@ function engineFinishThink() {
         if (!mainBoardMoves[position.bestMoveRaw]) {
             mainBoardMovesLen++;
             mainBoardMoves[position.bestMoveRaw] = {
-                lowestEval: 300,
+                lowestEval: 1000,
                 averageEval: 0,
                 weightedEval: 0,
                 moveCoords: position.bestMoveCoords,
@@ -129,11 +129,11 @@ function engineFinishThink() {
 
     if (engineMoveCoords !== null) {
         engineDebugLog(`Playing ${engineMoveRaw} [${engineMoveCoords}], eval ${engineMoveEval}`);
-        makeEngineMove(engineMoveCoords);
+        // makeEngineMove(engineMoveCoords);
     }
 }
 
-// if any worker found any mate, then we know to remove moves that don't have a mate
+// if any worker found any mate, then we know to try to remove moves that don't have only mates
 function focusOnMates(mainBoardMovesLen){
     if (mainBoardMovesLen < 2 || !workers.some(worker => worker.foundAnyMate)) {
         return;
@@ -142,13 +142,13 @@ function focusOnMates(mainBoardMovesLen){
     for (let mainBoardMove in mainBoardMoves) {
         let mainBoardMoveData = mainBoardMoves[mainBoardMove];
 
-        if (!mainBoardMoveData.positions.some(position => position.isMate)) {
+        if (!mainBoardMoveData.positions.every(position => position.isMate)) {
             delete mainBoardMoves[mainBoardMove];
             mainBoardMovesLen--;
         }
     }
 
-    engineDebugLog(`Trimmed to ${mainBoardMovesLen} main board moves with checkmates`);
+    engineDebugLog(`Trimmed to ${mainBoardMovesLen} main board moves with only checkmates`);
 }
 
 function makeEngineMove(move) {

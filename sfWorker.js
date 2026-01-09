@@ -94,7 +94,7 @@ class sfWorker {
 
         if (result === "bestmove (none)") {  // checkmate against playing side
             this.workerDebugLog("Result: checkmate");
-            this.eval = -250;
+            this.eval = -200;
         } else {
             this.workerDebugLog(`Result: ${result} (eval ${this.eval}, hashfull ${this.hashfull}%)`);
             let bestmoveMatch = result.match(/^bestmove ([a-h][1-8][a-h][1-8])([qrbn])?/);  // intentionally ignore promotions
