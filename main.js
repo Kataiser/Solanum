@@ -1,9 +1,9 @@
 const DEBUG = true;
-const ENGINE_COUNT = 14;
-const SEARCH_TIME = 8000;
-const TOTAL_HASH = 128;
+const ENGINE_COUNT = 12;
+const SEARCH_TIME = 20000;
+const TOTAL_HASH = 512;
 const MAX_THREADS = window.navigator.hardwareConcurrency - 4;
-const CONTEMPT = 1;
+const CONTEMPT = 0;
 
 
 // ENGINE STARTUP
@@ -86,9 +86,6 @@ function engineFinishThink() {
         if (!mainBoardMoves[position.bestMoveRaw]) {
             mainBoardMovesLen++;
             mainBoardMoves[position.bestMoveRaw] = {
-                lowestEval: 1000,
-                averageEval: 0,
-                weightedEval: 0,
                 moveCoords: position.bestMoveCoords,
                 positions: []
             };
@@ -98,30 +95,19 @@ function engineFinishThink() {
     });
 
     engineDebugLog(`Collected ${mainBoardMovesLen} main board moves`);
-    focusOnMates(mainBoardMovesLen);
 
     // worst-case minimax across superpositions
     for (let mainBoardMove in mainBoardMoves) {
         let mainBoardMoveData = mainBoardMoves[mainBoardMove];
-        let evalSum = 0;
 
-        // step 1: get the lowest eval for each move
-        mainBoardMoveData.positions.forEach((position) => {
-            evalSum += position.eval;
+        // step 1: get the median move by eval
+        let medianMove = mainBoardMoveData.positions
+            .sort((a, b) => a.eval - b.eval)
+            [Math.floor(mainBoardMoveData.positions.length / 2)];
 
-            if (position.eval < mainBoardMoveData.lowestEval) {
-                mainBoardMoveData.lowestEval = position.eval;
-            }
-        });
-
-        mainBoardMoveData.averageEval = (evalSum / mainBoardMoveData.positions.length).toFixed(3);
-        mainBoardMoveData.weightedEval = (mainBoardMoveData.lowestEval +
-            ((CONTEMPT * mainBoardMoveData.positions.length) / 1000) +
-            ((CONTEMPT * mainBoardMoveData.averageEval) / 10)).toFixed(3);
-
-        // step 2: select the highest of the lowest (weighted) evals
-        if (mainBoardMoveData.weightedEval > engineMoveEval) {
-            engineMoveEval = mainBoardMoveData.weightedEval;
+        // step 2: select the highest of the median evals
+        if (medianMove.eval > engineMoveEval) {
+            engineMoveEval = medianMove.eval;
             engineMoveRaw = mainBoardMove;
             engineMoveCoords = mainBoardMoveData.moveCoords;
         }
@@ -129,26 +115,8 @@ function engineFinishThink() {
 
     if (engineMoveCoords !== null) {
         engineDebugLog(`Playing ${engineMoveRaw} [${engineMoveCoords}], eval ${engineMoveEval}`);
-        // makeEngineMove(engineMoveCoords);
+        makeEngineMove(engineMoveCoords);
     }
-}
-
-// if any worker found any mate, then we know to try to remove moves that don't have only mates
-function focusOnMates(mainBoardMovesLen){
-    if (mainBoardMovesLen < 2 || !workers.some(worker => worker.foundAnyMate)) {
-        return;
-    }
-
-    for (let mainBoardMove in mainBoardMoves) {
-        let mainBoardMoveData = mainBoardMoves[mainBoardMove];
-
-        if (!mainBoardMoveData.positions.every(position => position.isMate)) {
-            delete mainBoardMoves[mainBoardMove];
-            mainBoardMovesLen--;
-        }
-    }
-
-    engineDebugLog(`Trimmed to ${mainBoardMovesLen} main board moves with only checkmates`);
 }
 
 function makeEngineMove(move) {
