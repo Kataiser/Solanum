@@ -1,9 +1,7 @@
-const DEBUG = true;
-const ENGINE_COUNT = window.navigator.hardwareConcurrency - 1
-const SEARCH_TIME = 1200000;
+const DEBUG_LEVEL = 2;  // 0 = no logs, 1 = most logs, 2 = engine go logs
+const ENGINE_COUNT = window.navigator.hardwareConcurrency - 1;
+const SEARCH_TIME = 60000;
 const TOTAL_HASH = 512;
-const MAX_THREADS = window.navigator.hardwareConcurrency - 1;
-const CONTEMPT = 0;
 
 
 // ENGINE STARTUP
@@ -11,13 +9,16 @@ const CONTEMPT = 0;
 let workers = [];
 let workersCompleted = 0;
 let workersRunning = 0;
-let evaluatedPositions = [];
-let mainBoardMoves = null;
-let opponentPositions = null;
+let evaluatedPositions;
+let mainBoardMoves;
+let opponentPositions;
 
 function initEngineWorkers() {
+    console.log("Starting Solanum engine (https://github.com/Kataiser/Solanum)");
+    engineDebugLog(`${ENGINE_COUNT} engine workers, ${SEARCH_TIME / 1000}s search time, ${TOTAL_HASH} total hash`);
+
     for (let i = 0; i < ENGINE_COUNT; i++) {
-        workers[i] = new sfWorker(i);
+        workers[i] = new sfWorker(i, DEBUG_LEVEL);
     }
 }
 
@@ -44,6 +45,7 @@ function engineStartThink() {
 
                         let boardAfterMove = cloneBoard(auxBoard);
                         boardAfterMove.string = auxBoard.string;
+                        boardAfterMove.moves = structuredClone(auxillaryBoardArray[0].moves);
                         boardAfterMove.makeMove(...fullMove, false);
                         boardAfterMove.opponentPositionID = opponentPositions.length;
                         mainBoardMoves.get(moveKey).push(boardAfterMove);
@@ -58,7 +60,7 @@ function engineStartThink() {
     workersCompleted = 0;
     evaluatedPositions = [];
     workers.forEach((worker) => worker.reset());
-    workersRunning = Math.min(auxillaryBoardArray.length, ENGINE_COUNT);
+    workersRunning = Math.min(opponentPositions.length, ENGINE_COUNT);
     let workerHash = Math.round(TOTAL_HASH / workersRunning);
 
     // distribute positions across workers
@@ -69,24 +71,8 @@ function engineStartThink() {
         let moves = opponentPosition.moves.map(s => s.replace(/^[BKNPQR]/, "")).join(" ");
 
         workers[i % ENGINE_COUNT].addPosition(opponentPosition.opponentPositionID, startFEN, moves);
-        // workers[i % ENGINE_COUNT].setHash(workerHash);
+        workers[i % ENGINE_COUNT].setHash(workerHash);
     }
-
-    // set thread count per worker
-    // if (workersRunning >= MAX_THREADS) {
-    //     workers.forEach((worker) => worker.setThreads(1));
-    // } else {
-    //     let baseThreads = Math.floor(MAX_THREADS / workersRunning);
-    //     let remainderThreads = MAX_THREADS % workersRunning;
-    //
-    //     for (let i = 0; i < workersRunning; i++) {
-    //         if (i < remainderThreads) {
-    //             workers[i].setThreads(baseThreads + 1);
-    //         } else {
-    //             workers[i].setThreads(baseThreads);
-    //         }
-    //     }
-    // }
 
     engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash})`);
     workers.forEach((worker) => worker.go(SEARCH_TIME));
@@ -149,8 +135,10 @@ function makeEngineMove(move) {
 
 // MISC
 
+function hashPieceArray(pieceArray) {}
+
 function engineDebugLog(log) {
-    if (DEBUG) {
+    if (DEBUG_LEVEL >= 1) {
         console.log(log);
     }
 }

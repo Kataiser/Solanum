@@ -1,11 +1,13 @@
 class sfWorker {
-    constructor(id) {
+    constructor(id, debugLevel) {
         this.id = id;
+        this.debugLevel = debugLevel;
         this.reset();
 
         this.engine = loadEngine("/superposition-chess/js/solanum/stockfish.js/stockfish-17.1-asm-341ff22.js", function () {});
         this.engine.send("uci");
         this.engine.send("setoption name UCI_Chess960 value true");
+        this.engine.send(`setoption name Hash value 64`);
         this.engine.send("ucinewgame");
         this.engine.send("isready");
         this.workerDebugLog("Started engine");
@@ -17,16 +19,10 @@ class sfWorker {
         this.eval = 0;
         this.hashfull = 0;
         this.positionSearchTime = 0;
-        this.threads = 1;
     }
 
     setHash(hash) {
         // this.engine.send(`setoption name Hash value ${hash}`);
-    }
-
-    setThreads(threads) {
-        this.threads = threads;
-        // this.engine.send(`setoption name Threads value ${this.threads}`);
     }
 
     addPosition(posID, startFEN, moves) {
@@ -44,7 +40,7 @@ class sfWorker {
     go(totalSearchTime) {
         if (this.positionQueue.length !== 0) {
             this.positionSearchTime = Math.floor(totalSearchTime / this.positionQueue.length);
-            this.workerDebugLog(`Going for ${this.positionSearchTime} ms each for ${this.positionQueue.length} positions using ${this.threads} threads`);
+            this.workerDebugLog(`Going for ${this.positionSearchTime} ms each for ${this.positionQueue.length} positions`);
             this.goEach();
         }
     }
@@ -53,7 +49,10 @@ class sfWorker {
     goEach() {
         let position = this.positionQueue[this.currentPositionIndex];
         let positionCommand = `position fen ${position.startFEN} moves ${position.moves}`;
-        // this.workerDebugLog(`Going from \`${positionCommand}\``);
+
+        if (this.debugLevel === 2) {
+            this.workerDebugLog(`Going from \`${positionCommand}\``);
+        }
 
         this.engine.send(positionCommand);
         this.engine.send(`go movetime ${this.positionSearchTime}`,
@@ -87,12 +86,17 @@ class sfWorker {
     // callback from SF finishing a search
     onComplete(result) {
         let position = this.positionQueue[this.currentPositionIndex];
+        let resultLog;
 
         if (result === "bestmove (none)") {  // checkmate against playing side
-            this.workerDebugLog("Result: checkmate");
+            resultLog = "Result: checkmate";
             this.eval = -200;
         } else {
-            // this.workerDebugLog(`Result: ${result} (eval ${this.eval}, hashfull ${this.hashfull}%)`);
+            resultLog = `Result: ${result} (eval ${this.eval}, hashfull ${this.hashfull}%)`;
+        }
+
+        if (this.debugLevel === 2) {
+            engineDebugLog(resultLog);
         }
 
         position.eval = this.eval;
