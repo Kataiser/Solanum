@@ -18,11 +18,10 @@ class sfWorker {
         this.hashfull = 0;
         this.positionSearchTime = 0;
         this.threads = 1;
-        this.foundAnyMate = false;
     }
 
     setHash(hash) {
-        this.engine.send(`setoption name Hash value ${hash}`);
+        // this.engine.send(`setoption name Hash value ${hash}`);
     }
 
     setThreads(threads) {
@@ -35,8 +34,6 @@ class sfWorker {
             posID: posID,
             startFEN: startFEN,
             moves: moves,
-            bestMoveRaw: null,
-            bestMoveCoords: null,
             eval: null,
             isMate: false
         });
@@ -56,7 +53,7 @@ class sfWorker {
     goEach() {
         let position = this.positionQueue[this.currentPositionIndex];
         let positionCommand = `position fen ${position.startFEN} moves ${position.moves}`;
-        this.workerDebugLog(`Going from \`${positionCommand}\``);
+        // this.workerDebugLog(`Going from \`${positionCommand}\``);
 
         this.engine.send(positionCommand);
         this.engine.send(`go movetime ${this.positionSearchTime}`,
@@ -80,7 +77,6 @@ class sfWorker {
         } else if (matchMate) {
             this.eval = 200 - Math.log(parseInt(matchMate[1]));
             this.positionQueue[this.currentPositionIndex].isMate = true;
-            this.foundAnyMate = true;
         }
 
         if (matchHashfull) {
@@ -96,10 +92,7 @@ class sfWorker {
             this.workerDebugLog("Result: checkmate");
             this.eval = -200;
         } else {
-            this.workerDebugLog(`Result: ${result} (eval ${this.eval}, hashfull ${this.hashfull}%)`);
-            let bestmoveMatch = result.match(/^bestmove ([a-h][1-8][a-h][1-8])([qrbn])?/);  // intentionally ignore promotions
-            position.bestMoveRaw = bestmoveMatch[1];
-            position.bestMoveCoords = convertMove(bestmoveMatch[1].slice(0, 2), bestmoveMatch[1].slice(2));
+            // this.workerDebugLog(`Result: ${result} (eval ${this.eval}, hashfull ${this.hashfull}%)`);
         }
 
         position.eval = this.eval;
@@ -115,21 +108,10 @@ class sfWorker {
 
     allComplete() {
         this.workerDebugLog(`Completed evaluating ${this.positionQueue.length} positions`);
-        this.completed = true;
         workerCompleted();
     }
 
     workerDebugLog(log) {
         engineDebugLog(`[Worker ${this.id}] ${log}`);
     }
-}
-
-// convert from engine format (ex: b1c3) to array position
-function convertMove(from, to) {
-    let letters = "abcdefgh";
-    let sourceC = letters.indexOf(from[0]);
-    let sourceR = 8 - parseInt(from[1]);
-    let targetC = letters.indexOf(to[0]);
-    let targetR = 8 - parseInt(to[1]);
-    return [sourceR, sourceC, targetR, targetC];
 }
