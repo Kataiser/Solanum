@@ -34,8 +34,7 @@ class sfWorker {
             posID: posID,
             startFEN: startFEN,
             moves: moves,
-            eval: null,
-            isMate: false
+            eval: null
         });
     }
 
@@ -79,7 +78,6 @@ class sfWorker {
             this.eval = parseInt(matchCp[1]) / 100;
         } else if (matchMate) {
             this.eval = 200 - Math.log(parseInt(matchMate[1]));
-            this.positionQueue[this.currentPositionIndex].isMate = true;
         }
 
         if (matchHashfull) {
