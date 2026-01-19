@@ -1,4 +1,4 @@
-const DEBUG_LEVEL = 2;  // 0 = no logs, 1 = most logs, 2 = engine go logs
+const DEBUG_LEVEL = 1;  // 0 = no logs, 1 = most logs, 2 = engine go logs
 const ENGINE_COUNT = window.navigator.hardwareConcurrency - 1;
 const SEARCH_TIME = 60000;
 const TOTAL_HASH = 512;

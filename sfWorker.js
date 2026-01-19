@@ -19,10 +19,14 @@ class sfWorker {
         this.eval = 0;
         this.hashfull = 0;
         this.positionSearchTime = 0;
+        this.hash = 16;
     }
 
     setHash(hash) {
-        // this.engine.send(`setoption name Hash value ${hash}`);
+        if (hash !== this.hash) {
+            this.hash = hash;
+            this.engine.send(`setoption name Hash value ${hash}`);
+        }
     }
 
     addPosition(posID, startFEN, moves) {
