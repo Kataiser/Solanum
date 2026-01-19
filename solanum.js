@@ -135,8 +135,6 @@ function makeEngineMove(move) {
 
 // MISC
 
-function hashPieceArray(pieceArray) {}
-
 function engineDebugLog(log) {
     if (DEBUG_LEVEL >= 1) {
         console.log(log);
