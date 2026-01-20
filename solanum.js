@@ -102,7 +102,7 @@ function engineFinishThink() {
     // that is, find the worst (lowest) best (highest) opponent move
 
     // scale from 0 at 8 strength up to +- 4 eval randomly at 1 strength
-    let randomScale = (8 - Math.min(ENGINE_STRENGTH, 8)) * 8;
+    let randomScale = (8 - Math.min(ENGINE_STRENGTH, 8)) * 2;
 
     for (let [mainBoardMove, opponentPositions] of mainBoardMoves) {
         let bestOpponentMoveEval = -1000;
