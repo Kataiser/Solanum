@@ -1,6 +1,7 @@
 class sfWorker {
     constructor(id) {
         this.id = id;
+        this.hash = 34;
         this.reset();
 
         this.engine = loadEngine("/superposition-chess/js/solanum/stockfish.js/src/stockfish-17.1-asm-341ff22.js", function () {});
@@ -18,7 +19,6 @@ class sfWorker {
         this.eval = 0;
         this.hashfull = 0;
         this.positionSearchNodes = 0;
-        this.hash = 34;
         this.localEvaluatedPositions = [];
     }
 
@@ -40,9 +40,11 @@ class sfWorker {
 
     // use the engine to get best move and eval for every queued position
     // note that this can't be a loop because SF completing is a callback
-    go() {
+    go(totalSearchTime) {
         if (this.positionQueue.length !== 0) {
-            this.positionSearchNodes = Math.ceil(350 * (1200 / this.positionQueue.length) * (ENGINE_STRENGTH / 8));
+            // derived via a linear regression
+            let positionSearchNodesBase = Math.pow(10, (1.075345 + 0.021271 * Math.sqrt(this.positionQueue.length) - Math.log10(totalSearchTime)) / -0.600996);
+            this.positionSearchNodes = Math.max(20, Math.round(positionSearchNodesBase * (ENGINE_STRENGTH / 8)));
             this.workerDebugLog(`Going for ${this.positionSearchNodes} nodes each for ${this.positionQueue.length} positions`);
             this.goEach();
         }
