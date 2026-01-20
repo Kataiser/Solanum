@@ -1,6 +1,6 @@
 const DEBUG_LEVEL = 1;  // 0 = no logs, 1 = most logs, 2 = engine go logs
 const ENGINE_COUNT = window.navigator.hardwareConcurrency - 1;
-const SEARCH_TIME = 60000;
+const ENGINE_STRENGTH = 1;  // 1 to 8 from GUI, can go higher for engine vs engine
 const TOTAL_HASH = 512;
 
 
@@ -12,10 +12,11 @@ let workersRunning = 0;
 let evaluatedPositions;
 let mainBoardMoves;
 let opponentPositions;
+let startTime;
 
 function initEngineWorkers() {
     console.log("Starting Solanum engine (https://github.com/Kataiser/Solanum)");
-    engineDebugLog(`${ENGINE_COUNT} engine workers, ${SEARCH_TIME / 1000}s search time, ${TOTAL_HASH} total hash`);
+    engineDebugLog(`${ENGINE_COUNT} engine workers, ${ENGINE_STRENGTH} strength, ${TOTAL_HASH} total hash`);
 
     for (let i = 0; i < ENGINE_COUNT; i++) {
         workers[i] = new sfWorker(i, DEBUG_LEVEL);
@@ -27,6 +28,7 @@ function initEngineWorkers() {
 
 function engineStartThink() {
     engineDebugLog("thonk");
+    startTime = Date.now();
     mainBoardMoves = new Map();
     opponentPositions = [];
 
@@ -75,7 +77,7 @@ function engineStartThink() {
     }
 
     engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash})`);
-    workers.forEach((worker) => worker.go(SEARCH_TIME));
+    workers.forEach((worker) => worker.go());
 }
 
 // called from a worker each time it finishes
@@ -98,14 +100,18 @@ function engineFinishThink() {
     // for each main board move, find the eval of the best opponent move across superpositions. then, play the move with the worst of those
     // that is, find the worst (lowest) best (highest) opponent move
 
+    // scale from 0 at 8 strength up to +- 7 eval randomly at 1 strength
+    let randomScale = 8 - Math.min(ENGINE_STRENGTH, 8);
+
     for (let [mainBoardMove, opponentPositions] of mainBoardMoves) {
         let bestOpponentMoveEval = -1000;
 
         for (let opponentPosition of opponentPositions) {
             let evaluatedPosition = evaluatedPositions.find((pos) => pos.posID === opponentPosition.opponentPositionID);
+            let positionEvalComparison = (evaluatedPosition.eval + Math.random() * randomScale).toFixed(2);
 
-            if (evaluatedPosition.eval > bestOpponentMoveEval) {
-                bestOpponentMoveEval = evaluatedPosition.eval;
+            if (positionEvalComparison > bestOpponentMoveEval) {
+                bestOpponentMoveEval = positionEvalComparison;
             }
         }
 
@@ -119,7 +125,7 @@ function engineFinishThink() {
         engineMoveCoords.push(parseInt(coord));
     }
 
-    engineDebugLog(`Playing [${engineMoveCoords}], eval ${-engineMoveEval}`);
+    engineDebugLog(`Playing [${engineMoveCoords}], eval ${-engineMoveEval}, took ${Date.now() - startTime} ms`);
     makeEngineMove(engineMoveCoords);
 }
 
