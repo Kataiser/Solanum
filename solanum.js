@@ -100,15 +100,15 @@ function engineFinishThink() {
     // for each main board move, find the eval of the best opponent move across superpositions. then, play the move with the worst of those
     // that is, find the worst (lowest) best (highest) opponent move
 
-    // scale from 0 at 8 strength up to +- 7 eval randomly at 1 strength
-    let randomScale = 8 - Math.min(ENGINE_STRENGTH, 8);
+    // scale from 0 at 8 strength up to +- 4 eval randomly at 1 strength
+    let randomScale = 8 - Math.min(ENGINE_STRENGTH, 8) * 8;
 
     for (let [mainBoardMove, opponentPositions] of mainBoardMoves) {
         let bestOpponentMoveEval = -1000;
 
         for (let opponentPosition of opponentPositions) {
             let evaluatedPosition = evaluatedPositions.find((pos) => pos.posID === opponentPosition.opponentPositionID);
-            let positionEvalComparison = (evaluatedPosition.eval + Math.random() * randomScale).toFixed(2);
+            let positionEvalComparison = (evaluatedPosition.eval + (0.5 - Math.random()) * randomScale).toFixed(2);
 
             if (positionEvalComparison > bestOpponentMoveEval) {
                 bestOpponentMoveEval = positionEvalComparison;
