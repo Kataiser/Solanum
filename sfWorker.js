@@ -19,6 +19,7 @@ class sfWorker {
         this.hashfull = 0;
         this.positionSearchNodes = 0;
         this.hash = 34;
+        this.localEvaluatedPositions = [];
     }
 
     setHash(hash) {
@@ -95,7 +96,7 @@ class sfWorker {
 
         this.workerDebugLog(resultLog, true);
         position.eval = this.eval;
-        evaluatedPositions.push(position);
+        this.localEvaluatedPositions.push(position);
         this.currentPositionIndex++;
 
         if (this.currentPositionIndex === this.positionQueue.length) {

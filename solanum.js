@@ -1,6 +1,6 @@
 const DEBUG_LEVEL = 1;  // 0 = no logs, 1 = most logs, 2 = engine go logs
 const ENGINE_COUNT = window.navigator.hardwareConcurrency - 1;
-const ENGINE_STRENGTH = 1;  // 1 to 8 from GUI, can go higher for engine vs engine
+const ENGINE_STRENGTH = 8;  // 1 to 8 from GUI, can go higher for engine vs engine
 const TOTAL_HASH = 512;
 
 
@@ -60,7 +60,6 @@ function engineStartThink() {
 
     engineDebugLog(`Collected ${mainBoardMoves.size} main board moves`);
     workersCompleted = 0;
-    evaluatedPositions = [];
     workers.forEach((worker) => worker.reset());
     workersRunning = Math.min(opponentPositions.length, ENGINE_COUNT);
     let workerHash = Math.round(TOTAL_HASH / workersRunning);
@@ -96,12 +95,14 @@ function engineFinishThink() {
     let engineMoveEval = 1000;
     let engineMove;
     let engineMoveCoords = [];
+    evaluatedPositions = [];
+    workers.forEach((worker) => evaluatedPositions = evaluatedPositions.concat(worker.localEvaluatedPositions));
 
     // for each main board move, find the eval of the best opponent move across superpositions. then, play the move with the worst of those
     // that is, find the worst (lowest) best (highest) opponent move
 
     // scale from 0 at 8 strength up to +- 4 eval randomly at 1 strength
-    let randomScale = 8 - Math.min(ENGINE_STRENGTH, 8) * 8;
+    let randomScale = (8 - Math.min(ENGINE_STRENGTH, 8)) * 8;
 
     for (let [mainBoardMove, opponentPositions] of mainBoardMoves) {
         let bestOpponentMoveEval = -1000;
