@@ -1,6 +1,6 @@
 const DEBUG_LEVEL = 1;  // 0 = no logs, 1 = most logs, 2 = engine go logs
 const ENGINE_COUNT = Math.round(window.navigator.hardwareConcurrency * 0.75);
-const ENGINE_STRENGTH = 8;  // 1 to 8 from GUI, can go higher for engine vs engine
+const ENGINE_STRENGTH = 8;  // 1 to 8 from GUI
 const SEARCH_TIME = 8000;
 const TOTAL_HASH = 256;
 
@@ -60,6 +60,14 @@ function engineStartThink() {
         }
     }
 
+    // add promotions
+    for (let newBoard of newBoardArray) {
+        engineDebugLog(`Added promotion move ${newBoard.moves[newBoard.moves.length - 1]}`);
+        newBoard.opponentPositionID = opponentPositions.length;
+        opponentPositions.push(newBoard);
+        mainBoardMoves.get(newBoard.lastMove.join("")).push(newBoard);
+    }
+
     engineDebugLog(`Collected ${mainBoardMoves.size} main board moves`);
     workersCompleted = 0;
     workers.forEach((worker) => worker.reset());
@@ -94,9 +102,10 @@ function workerCompleted() {
 // all workers have finished
 function engineFinishThink() {
     engineDebugLog("All workers have finished");
-    let engineMoveEval = 1000;
     let engineMove;
-    let engineMoveCoords = [];
+    let engineMoveEval = 1000;
+    let engineBestMove;
+    let engineBestMoveEval = 1000;
     evaluatedPositions = [];
     workers.forEach((worker) => evaluatedPositions = evaluatedPositions.concat(worker.localEvaluatedPositions));
 
@@ -106,29 +115,41 @@ function engineFinishThink() {
     // scale from 0 at 8 strength up to +- 4 eval randomly at 1 strength
     let randomScale = (8 - Math.min(ENGINE_STRENGTH, 8)) * 2;
 
-    for (let [mainBoardMove, opponentPositions] of mainBoardMoves) {
-        let bestOpponentMoveEval = -1000;
+    for (let [mainBoardMove, moveOpponentPositions] of mainBoardMoves) {
+        let bestOpponentMoveDecisionEval = -1000;
+        let bestOpponentMoveTrueEval = -1000;
 
-        for (let opponentPosition of opponentPositions) {
-            let evaluatedPosition = evaluatedPositions.find((pos) => pos.posID === opponentPosition.opponentPositionID);
-            let positionEvalComparison = (evaluatedPosition.eval + (0.5 - Math.random()) * randomScale).toFixed(2);
+        for (let moveOpponentPosition of moveOpponentPositions) {
+            let evaluatedPosition = evaluatedPositions.find((pos) => pos.posID === moveOpponentPosition.opponentPositionID);
+            let positionDecisionEval = (evaluatedPosition.eval + (0.5 - Math.random()) * randomScale).toFixed(2);
 
-            if (positionEvalComparison > bestOpponentMoveEval) {
-                bestOpponentMoveEval = positionEvalComparison;
+            if (positionDecisionEval > bestOpponentMoveDecisionEval) {
+                bestOpponentMoveDecisionEval = positionDecisionEval;
+            }
+
+            if (evaluatedPosition.eval > bestOpponentMoveTrueEval) {
+                bestOpponentMoveTrueEval = evaluatedPosition.eval;
             }
         }
 
-        if (bestOpponentMoveEval < engineMoveEval) {
-            engineMoveEval = bestOpponentMoveEval;
+        if (bestOpponentMoveDecisionEval < engineMoveEval) {
+            engineMoveEval = bestOpponentMoveDecisionEval;
             engineMove = mainBoardMove;
+        }
+
+        if (bestOpponentMoveTrueEval < engineBestMoveEval) {
+            engineBestMoveEval = bestOpponentMoveTrueEval;
+            engineBestMove = engineMove;
         }
     }
 
-    for (let coord of engineMove.split("")) {
-        engineMoveCoords.push(parseInt(coord));
+    let engineMoveCoords = engineMoveToCoords(engineMove);
+    engineDebugLog(`Playing [${engineMoveCoords}], eval ${-engineMoveEval}, took ${Date.now() - startTime} ms`);
+
+    if (engineMove !== engineBestMove) {
+        engineDebugLog(`(Actual best move was [${engineMoveToCoords(engineBestMove)}], eval ${engineBestMoveEval}`);
     }
 
-    engineDebugLog(`Playing [${engineMoveCoords}], eval ${-engineMoveEval}, took ${Date.now() - startTime} ms`);
     makeEngineMove(engineMoveCoords);
 }
 
@@ -138,11 +159,21 @@ function makeEngineMove(move) {
     heldPiece = mainBoard.pieceArray[r][c];
     heldPiece.r = r; heldPiece.c = c;
     makeMoves(move);
-    mainBoard.lastMove = move;
 }
 
 
 // MISC
+
+
+function engineMoveToCoords(move) {
+    let moveCoords = [];
+
+    for (let coord of move.split("")) {
+        moveCoords.push(parseInt(coord));
+    }
+
+    return moveCoords;
+}
 
 function engineDebugLog(log) {
     if (DEBUG_LEVEL >= 1) {
