@@ -1,7 +1,7 @@
 const DEBUG_LEVEL = 1;  // 0 = no logs, 1 = most logs, 2 = engine go logs
-// const ENGINE_COUNT = window.navigator.hardwareConcurrency - 1;
-const ENGINE_COUNT = 7;
+const ENGINE_COUNT = Math.round(window.navigator.hardwareConcurrency * 0.75);
 const ENGINE_STRENGTH = 8;  // 1 to 8 from GUI, can go higher for engine vs engine
+const SEARCH_TIME = 8000;
 const TOTAL_HASH = 256;
 
 
@@ -78,7 +78,7 @@ function engineStartThink() {
     }
 
     engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash})`);
-    workers.forEach((worker) => worker.go(10000));
+    workers.forEach((worker) => worker.go(SEARCH_TIME));
 }
 
 // called from a worker each time it finishes

@@ -18,7 +18,7 @@ class sfWorker {
         this.currentPositionIndex = 0;
         this.eval = 0;
         this.hashfull = 0;
-        this.positionSearchNodes = 0;
+        this.positionSearchTime = 0;
         this.localEvaluatedPositions = [];
     }
 
@@ -42,10 +42,10 @@ class sfWorker {
     // note that this can't be a loop because SF completing is a callback
     go(totalSearchTime) {
         if (this.positionQueue.length !== 0) {
-            // derived via a linear regression
-            let positionSearchNodesBase = Math.pow(10, (1.075345 + 0.021271 * Math.sqrt(this.positionQueue.length) - Math.log10(totalSearchTime)) / -0.600996);
-            this.positionSearchNodes = Math.max(20, Math.round(positionSearchNodesBase * (ENGINE_STRENGTH / 8)));
-            this.workerDebugLog(`Going for ${this.positionSearchNodes} nodes each for ${this.positionQueue.length} positions`);
+            // derived via linear regression
+            let positionSearchTimeBase = Math.pow(10, (0.480979 + 0.862103 * Math.log10(this.positionQueue.length) - Math.log10(totalSearchTime)) / -0.883468);
+            this.positionSearchTime = Math.max(1, Math.round(positionSearchTimeBase * (ENGINE_STRENGTH / 8)));
+            this.workerDebugLog(`Going for ${this.positionSearchTime} ms each for ${this.positionQueue.length} positions`);
             this.goEach();
         }
     }
@@ -57,7 +57,7 @@ class sfWorker {
         this.workerDebugLog(`Going from \`${positionCommand}\``, true);
 
         this.engine.send(positionCommand);
-        this.engine.send(`go nodes ${this.positionSearchNodes}`,
+        this.engine.send(`go movetime ${this.positionSearchTime}`,
             (result) => {
                 this.onComplete(result);
             },
