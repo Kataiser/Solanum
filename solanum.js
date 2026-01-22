@@ -85,8 +85,9 @@ function engineStartThink() {
         workers[i % ENGINE_COUNT].setHash(workerHash);
     }
 
-    engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash})`);
-    workers.forEach((worker) => worker.go(SEARCH_TIME));
+    let targetTime = SEARCH_TIME * (ENGINE_STRENGTH / 8);
+    engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash}), target = ${targetTime} ms`);
+    workers.forEach((worker) => worker.go(targetTime));
 }
 
 // called from a worker each time it finishes
@@ -144,10 +145,10 @@ function engineFinishThink() {
     }
 
     let engineMoveCoords = engineMoveToCoords(engineMove);
-    engineDebugLog(`Playing [${engineMoveCoords}], eval ${-engineMoveEval}, took ${Date.now() - startTime} ms`);
+    engineDebugLog(`Playing [${engineMoveCoords}], eval ${-engineBestMoveEval}, took ${Date.now() - startTime} ms`);
 
     if (engineMove !== engineBestMove) {
-        engineDebugLog(`(Actual best move was [${engineMoveToCoords(engineBestMove)}], eval ${engineBestMoveEval}`);
+        engineDebugLog(`(Actual best move was [${engineMoveToCoords(engineBestMove)}]`);
     }
 
     makeEngineMove(engineMoveCoords);

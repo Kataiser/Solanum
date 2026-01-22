@@ -42,10 +42,23 @@ class sfWorker {
     // note that this can't be a loop because SF completing is a callback
     go(totalSearchTime) {
         if (this.positionQueue.length !== 0) {
+            let positionsScaled = Math.log10(this.positionQueue.length);
+            let totalSearchTimeScaled = Math.log10(totalSearchTime);
             // derived via linear regression
-            let positionSearchTimeBase = Math.pow(10, (0.480979 + 0.862103 * Math.log10(this.positionQueue.length) - Math.log10(totalSearchTime)) / -0.883468);
-            this.positionSearchTime = Math.max(1, Math.round(positionSearchTimeBase * (ENGINE_STRENGTH / 8)));
-            this.workerDebugLog(`Going for ${this.positionSearchTime} ms each for ${this.positionQueue.length} positions`);
+            let positionSearchAmountBase = Math.pow(10, (0.480979 + 0.862103 * positionsScaled - totalSearchTimeScaled) / -0.883468);
+
+            if (positionSearchAmountBase > 1) {
+                this.positionSearchAmount = Math.round(positionSearchAmountBase);
+                this.useTimeSearch = true;
+            } else {
+                // we need more precision so use nodes, less accurate model though
+                let positionSearchNodesBase = Math.pow(10, (0.169889 + 0.671984 * positionsScaled - totalSearchTimeScaled) / -0.426464);
+                this.positionSearchAmount = Math.max(20, Math.round(positionSearchNodesBase));  // stockfish doesn't let you go below 20 (lol)
+                this.useTimeSearch = false;
+            }
+
+            let goUnit = this.useTimeSearch ? "ms" : "nodes";
+            this.workerDebugLog(`Going for ${this.positionSearchAmount} ${goUnit} each for ${this.positionQueue.length} positions`);
             this.goEach();
         }
     }
@@ -55,9 +68,16 @@ class sfWorker {
         let position = this.positionQueue[this.currentPositionIndex];
         let positionCommand = `position fen ${position.startFEN} moves ${position.moves}`;
         this.workerDebugLog(`Going from \`${positionCommand}\``, true);
+        let goCommand;
+
+        if (this.useTimeSearch) {
+            goCommand = `go movetime ${this.positionSearchAmount}`;
+        } else {
+            goCommand = `go nodes ${this.positionSearchAmount}`;
+        }
 
         this.engine.send(positionCommand);
-        this.engine.send(`go movetime ${this.positionSearchTime}`,
+        this.engine.send(goCommand,
             (result) => {
                 this.onComplete(result);
             },
