@@ -34,7 +34,7 @@ class sfWorker {
             posID: posID,
             startFEN: startFEN,
             moves: moves,
-            eval: null
+            eval: undefined
         });
     }
 
@@ -96,7 +96,13 @@ class sfWorker {
         if (matchCp) {
             this.eval = parseInt(matchCp[1]) / 100;
         } else if (matchMate) {
-            this.eval = 200 - Math.log(parseInt(matchMate[1]));
+            let movesToMate = parseInt(matchMate[1]);
+
+            if (movesToMate >= 0) {
+                this.eval = 200 - Math.log(movesToMate);
+            } else {
+                this.eval = -200 + Math.log(movesToMate);
+            }
         }
 
         if (matchHashfull) {
