@@ -122,7 +122,7 @@ function engineFinishThink() {
 
         for (let moveOpponentPosition of moveOpponentPositions) {
             let evaluatedPosition = evaluatedPositions.find((pos) => pos.posID === moveOpponentPosition.opponentPositionID);
-            let positionDecisionEval = (evaluatedPosition.eval + (0.5 - Math.random()) * randomScale).toFixed(2);
+            let positionDecisionEval = (evaluatedPosition.eval + (0.5 - Math.random()) * randomScale);
 
             if (positionDecisionEval > bestOpponentMoveDecisionEval) {
                 bestOpponentMoveDecisionEval = positionDecisionEval;
@@ -145,7 +145,7 @@ function engineFinishThink() {
     }
 
     let engineMoveCoords = engineMoveToCoords(engineMove);
-    engineDebugLog(`Playing [${engineMoveCoords}], eval ${-engineBestMoveEval}, took ${Date.now() - startTime} ms`);
+    engineDebugLog(`Playing [${engineMoveCoords}], eval ${(-engineBestMoveEval).toFixed(2)}, took ${Date.now() - startTime} ms`);
 
     if (engineMove !== engineBestMove) {
         engineDebugLog(`(Actual best move was [${engineMoveToCoords(engineBestMove)}]`);
