@@ -107,14 +107,15 @@ function engineFinishThink() {
     let engineMoveEval = 1000;
     let engineBestMove;
     let engineBestMoveEval = 1000;
+    let actualBestText = "";
     evaluatedPositions = [];
     workers.forEach((worker) => evaluatedPositions = evaluatedPositions.concat(worker.localEvaluatedPositions));
 
     // for each main board move, find the eval of the best opponent move across superpositions. then, play the move with the worst of those
     // that is, find the worst (lowest) best (highest) opponent move
 
-    // scale from 0 at 8 strength up to +- 4 eval randomly at 1 strength
-    let randomScale = (8 - Math.min(ENGINE_STRENGTH, 8)) * 2;
+    // scale from 0 at 8 strength up to +- 8 eval randomly at 1 strength
+    let randomScale = (8 - Math.min(ENGINE_STRENGTH, 8)) * 4;
 
     for (let [mainBoardMove, moveOpponentPositions] of mainBoardMoves) {
         let bestOpponentMoveDecisionEval = -1000;
@@ -144,13 +145,12 @@ function engineFinishThink() {
         }
     }
 
-    let engineMoveCoords = engineMoveToCoords(engineMove);
-    engineDebugLog(`Playing [${engineMoveCoords}], eval ${(-engineBestMoveEval).toFixed(2)}, took ${Date.now() - startTime} ms`);
-
     if (engineMove !== engineBestMove) {
-        engineDebugLog(`(Actual best move was [${engineMoveToCoords(engineBestMove)}]`);
+        actualBestText = ` (Actual best move was [${engineMoveToCoords(engineBestMove)}], eval ${(-engineBestMoveEval).toFixed(2)})`;
     }
 
+    let engineMoveCoords = engineMoveToCoords(engineMove);
+    engineDebugLog(`Playing [${engineMoveCoords}], eval ${(-engineMoveEval).toFixed(2)}, took ${Date.now() - startTime} ms${actualBestText}`);
     makeEngineMove(engineMoveCoords);
 }
 
