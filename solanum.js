@@ -14,14 +14,29 @@ let evaluatedPositions;
 let mainBoardMoves;
 let opponentPositions;
 let startTime;
+let positionsCache;
 
-function initEngineWorkers() {
+function initEngine() {
     console.log("Starting Solanum engine (https://github.com/Kataiser/Solanum)");
     engineDebugLog(`${ENGINE_COUNT} engine workers, ${ENGINE_STRENGTH} strength, ${TOTAL_HASH} total hash`);
 
     for (let i = 0; i < ENGINE_COUNT; i++) {
         workers[i] = new sfWorker(i, DEBUG_LEVEL);
     }
+
+    loadPositionsCache().then(data => {
+        positionsCache = data;
+        engineDebugLog("Loaded position cache entries");
+    });
+}
+
+async function loadPositionsCache() {
+    const response = await fetch('/superposition-chess/js/solanum/positions_cache.json.gz');
+    const stream = response.body;
+    const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+    const decompressedResponse = new Response(decompressedStream);
+    const text = await decompressedResponse.text();
+    return JSON.parse(text);
 }
 
 
@@ -78,10 +93,9 @@ function engineStartThink() {
     for (let i = 0; i < opponentPositions.length; i++) {
         let opponentPosition = opponentPositions[i];
         let startPos = opponentPosition.string;
-        let startFEN = `${startPos.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${startPos} w KkQq - 0 1`;
         let moves = opponentPosition.moves.map(s => s.replace(/^[BKNPQR]/, "")).join(" ");
 
-        workers[i % ENGINE_COUNT].addPosition(opponentPosition.opponentPositionID, startFEN, moves);
+        workers[i % ENGINE_COUNT].addPosition(opponentPosition.opponentPositionID, startPos, moves);
         workers[i % ENGINE_COUNT].setHash(workerHash);
     }
 

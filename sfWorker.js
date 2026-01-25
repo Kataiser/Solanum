@@ -18,7 +18,7 @@ class sfWorker {
         this.currentPositionIndex = 0;
         this.eval = 0;
         this.hashfull = 0;
-        this.positionSearchTime = 0;
+        this.positionSearchAmount = 0;
         this.localEvaluatedPositions = [];
     }
 
@@ -29,10 +29,10 @@ class sfWorker {
         }
     }
 
-    addPosition(posID, startFEN, moves) {
+    addPosition(posID, startPos, moves) {
         this.positionQueue.push({
             posID: posID,
-            startFEN: startFEN,
+            startPos: startPos,
             moves: moves,
             eval: undefined
         });
@@ -41,32 +41,45 @@ class sfWorker {
     // use the engine to get best move and eval for every queued position
     // note that this can't be a loop because SF completing is a callback
     go(totalSearchTime) {
-        if (this.positionQueue.length !== 0) {
-            let positionsScaled = Math.log10(this.positionQueue.length);
-            let totalSearchTimeScaled = Math.log10(totalSearchTime);
-            // derived via linear regression
-            let positionSearchAmountBase = Math.pow(10, (0.480979 + 0.862103 * positionsScaled - totalSearchTimeScaled) / -0.883468);
+        if (this.positionQueue.length === 0) {return;}
+        let undefinedPositionsCount = this.checkPositionCache();
+        let positionsScaled = Math.log10(undefinedPositionsCount);
+        let totalSearchTimeScaled = Math.log10(totalSearchTime);
+        // derived via linear regression
+        let positionSearchAmountBase = Math.pow(10, (0.480979 + 0.862103 * positionsScaled - totalSearchTimeScaled) / -0.883468);
 
-            if (positionSearchAmountBase > 1) {
-                this.positionSearchAmount = Math.round(positionSearchAmountBase);
-                this.useTimeSearch = true;
-            } else {
-                // we need more precision so use nodes, less accurate model though
-                let positionSearchNodesBase = Math.pow(10, (0.169889 + 0.671984 * positionsScaled - totalSearchTimeScaled) / -0.426464);
-                this.positionSearchAmount = Math.max(20, Math.round(positionSearchNodesBase));  // stockfish doesn't let you go below 20 (lol)
-                this.useTimeSearch = false;
-            }
-
-            let goUnit = this.useTimeSearch ? "ms" : "nodes";
-            this.workerDebugLog(`Going for ${this.positionSearchAmount} ${goUnit} each for ${this.positionQueue.length} positions`);
-            this.goEach();
+        if (positionSearchAmountBase > 1) {
+            this.positionSearchAmount = Math.round(positionSearchAmountBase);
+            this.useTimeSearch = true;
+        } else {
+            // we need more precision so use nodes, less accurate model though
+            let positionSearchNodesBase = Math.pow(10, (0.169889 + 0.671984 * positionsScaled - totalSearchTimeScaled) / -0.426464);
+            this.positionSearchAmount = Math.max(20, Math.round(positionSearchNodesBase));  // stockfish doesn't let you go below 20 (lol)
+            this.useTimeSearch = false;
         }
+
+        let goUnit = this.useTimeSearch ? "ms" : "nodes";
+        this.workerDebugLog(`Going for ${this.positionSearchAmount} ${goUnit} each for ${undefinedPositionsCount} positions`);
+        this.goEach();
     }
 
     // "recursively" called from onComplete callbacks
     goEach() {
         let position = this.positionQueue[this.currentPositionIndex];
-        let positionCommand = `position fen ${position.startFEN} moves ${position.moves}`;
+
+        // skip cached positions
+        while (position.eval !== undefined) {
+            this.localEvaluatedPositions.push(position);
+            this.currentPositionIndex++;
+            position = this.positionQueue[this.currentPositionIndex];
+
+            if (position === undefined) {
+                this.allComplete();
+                return;
+            }
+        }
+
+        let positionCommand = `position fen ${position.startPos.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${position.startPos} w KkQq - 0 1 moves ${position.moves}`;
         this.workerDebugLog(`Going from \`${positionCommand}\``, true);
         let goCommand;
 
@@ -87,6 +100,25 @@ class sfWorker {
         );
     }
 
+    // if a position exists in the precomputed eval cache, use that and remove it from the queue
+    checkPositionCache() {
+        let positionsCachedCount = 0;
+
+        for (let position of this.positionQueue) {
+            let cacheKey = `${position.startPos}${position.moves}`;
+            let cachedEval = positionsCache[cacheKey];
+            if (cachedEval === undefined) {continue;}
+            position.eval = cachedEval;
+            positionsCachedCount++;
+        }
+
+        if (positionsCachedCount > 0) {
+            this.workerDebugLog(`${positionsCachedCount}/${this.positionQueue.length} positions are from cache`);
+        }
+
+        return this.positionQueue.length - positionsCachedCount;
+    }
+
     // callback from any SF line (after go)
     onLine(line) {
         let matchCp = line.match(/score cp (-?\d+)/);
@@ -99,9 +131,9 @@ class sfWorker {
             let movesToMate = parseInt(matchMate[1]);
 
             if (movesToMate >= 0) {
-                this.eval = 200 - Math.log(movesToMate);
+                this.eval = 200 - Math.log10(movesToMate);
             } else {
-                this.eval = -200 + Math.log(movesToMate);
+                this.eval = -200 + Math.log10(movesToMate);
             }
         }
 
