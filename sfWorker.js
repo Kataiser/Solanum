@@ -43,7 +43,16 @@ class sfWorker {
     // note that this can't be a loop because SF completing is a callback
     go(totalSearchTime) {
         if (this.positionQueue.length === 0) {return;}
+        this.useTimeSearch = true;
         let undefinedPositionsCount = this.checkPositionCache();
+
+        if (undefinedPositionsCount === 0) {
+            this.workerDebugLog("All positions are from cache, skipping regressions");
+            this.positionQueue.forEach((position) => this.localEvaluatedPositions.push(position));
+            this.allComplete();
+            return;
+        }
+
         let positionsScaled = Math.log10(undefinedPositionsCount);
         let totalSearchTimeScaled = Math.log10(totalSearchTime);
         // derived via linear regression
@@ -51,7 +60,6 @@ class sfWorker {
 
         if (positionSearchAmountBase > 1) {
             this.positionSearchAmount = Math.round(positionSearchAmountBase);
-            this.useTimeSearch = true;
         } else {
             // we need more precision so use nodes, less accurate model though
             let positionSearchNodesBase = Math.pow(10, (0.169889 + 0.671984 * positionsScaled - totalSearchTimeScaled) / -0.426464);
