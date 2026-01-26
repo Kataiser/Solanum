@@ -29,11 +29,12 @@ class sfWorker {
         }
     }
 
-    addPosition(posID, startPos, moves) {
+    addPosition(posID, startPos, moves, moveCount) {
         this.positionQueue.push({
             posID: posID,
             startPos: startPos,
             moves: moves,
+            moveCount: moveCount,
             eval: undefined
         });
     }
@@ -105,6 +106,7 @@ class sfWorker {
         let positionsCachedCount = 0;
 
         for (let position of this.positionQueue) {
+            if (position.moveCount > 3) {continue;}
             let cachedEval = positionsCache[position.startPos][position.moves];
             if (cachedEval === undefined) {continue;}
             position.eval = cachedEval;

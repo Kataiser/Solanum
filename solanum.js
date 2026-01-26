@@ -95,7 +95,7 @@ function engineStartThink() {
         let startPos = opponentPosition.string;
         let moves = opponentPosition.moves.map(s => s.replace(/^[BKNPQR]/, "")).join(" ");
 
-        workers[i % ENGINE_COUNT].addPosition(opponentPosition.opponentPositionID, startPos, moves);
+        workers[i % ENGINE_COUNT].addPosition(opponentPosition.opponentPositionID, startPos, moves, opponentPosition.moves.length);
         workers[i % ENGINE_COUNT].setHash(workerHash);
     }
 
