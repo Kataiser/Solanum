@@ -105,8 +105,7 @@ class sfWorker {
         let positionsCachedCount = 0;
 
         for (let position of this.positionQueue) {
-            let cacheKey = `${position.startPos}${position.moves}`;
-            let cachedEval = positionsCache[cacheKey];
+            let cachedEval = positionsCache[position.startPos][position.moves];
             if (cachedEval === undefined) {continue;}
             position.eval = cachedEval;
             positionsCachedCount++;
