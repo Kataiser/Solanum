@@ -4,7 +4,7 @@ class sfWorker {
         this.hash = 34;
         this.reset();
 
-        this.engine = loadEngine("/superposition-chess/js/solanum/stockfish.js/src/stockfish-17.1-asm-341ff22.js", function () {});
+        this.engine = loadEngine("/superposition-chess/js/solanum/stockfish-18-asm.js", function () {});
         this.engine.send("uci");
         this.engine.send("setoption name UCI_Chess960 value true");
         this.engine.send(`setoption name Hash value 34`);
