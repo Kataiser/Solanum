@@ -48,7 +48,7 @@ class sfWorker {
 
         if (undefinedPositionsCount === 0) {
             this.workerDebugLog("All positions are from cache, skipping regressions");
-            this.positionQueue.forEach((position) => this.localEvaluatedPositions.push(position));
+            this.localEvaluatedPositions = this.positionQueue;
             this.allComplete();
             return;
         }
