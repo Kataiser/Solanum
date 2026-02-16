@@ -20,18 +20,28 @@ function initEngine() {
     console.log("Starting Solanum engine (https://github.com/Kataiser/Solanum)");
     engineDebugLog(`${ENGINE_COUNT} engine workers, ${ENGINE_STRENGTH} strength, ${TOTAL_HASH} total hash`);
 
+    loadPositionsCache('positions_cache_small.json.gz').then(data => {
+        positionsCache = data;
+        engineDebugLog("Loaded position cache (small)");
+
+        loadPositionsCache('positions_cache_big.json.gz').then(data => {
+            for (let [startPos, moves] of Object.entries(data)) {
+                for (let [move, eval] of Object.entries(moves)) {
+                    positionsCache[startPos][move] = eval;
+                }
+            }
+
+            engineDebugLog("Loaded position cache (big)");
+        });
+    });
+
     for (let i = 0; i < ENGINE_COUNT; i++) {
         workers[i] = new sfWorker(i, DEBUG_LEVEL);
     }
-
-    loadPositionsCache().then(data => {
-        positionsCache = data;
-        engineDebugLog("Loaded position cache entries");
-    });
 }
 
-async function loadPositionsCache() {
-    const response = await fetch('/superposition-chess/js/solanum/positions_cache.json.gz');
+async function loadPositionsCache(filename) {
+    const response = await fetch(`/superposition-chess/js/solanum/${filename}`);
     const stream = response.body;
     const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
     const decompressedResponse = new Response(decompressedStream);
