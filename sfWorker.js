@@ -59,7 +59,8 @@ class sfWorker {
         let positionSearchAmountBase = Math.pow(10, (0.480979 + 0.862103 * positionsScaled - totalSearchTimeScaled) / -0.883468);
 
         if (positionSearchAmountBase > 1) {
-            this.positionSearchAmount = Math.round(positionSearchAmountBase);
+            // cap in case the regression goes way high
+            this.positionSearchAmount = Math.min(Math.round(positionSearchAmountBase), Math.floor(totalSearchTime / undefinedPositionsCount));
         } else {
             // we need more precision so use nodes, less accurate model though
             let positionSearchNodesBase = Math.pow(10, (0.169889 + 0.671984 * positionsScaled - totalSearchTimeScaled) / -0.426464);
