@@ -1,7 +1,7 @@
 const DEBUG_LEVEL = 1;  // 0 = no logs, 1 = most logs, 2 = engine go logs
 const ENGINE_COUNT = Math.round(window.navigator.hardwareConcurrency * 0.75);
 const ENGINE_STRENGTH = 8;  // 1 to 8 from GUI
-const SEARCH_TIME = 8000;
+const SEARCH_TIME = 5000;
 const TOTAL_HASH = 256;
 
 
@@ -15,6 +15,8 @@ let mainBoardMoves;
 let opponentPositions;
 let startTime;
 let positionsCache;
+let targetSearchTime;
+let searchTimeCoefficient = 1;
 
 function initEngine() {
     console.log("Starting Solanum engine (https://github.com/Kataiser/Solanum)");
@@ -109,9 +111,11 @@ function engineStartThink() {
         workers[i % ENGINE_COUNT].setHash(workerHash);
     }
 
-    let targetTime = SEARCH_TIME * (ENGINE_STRENGTH / 8);
-    engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash}), target = ${targetTime} ms`);
-    workers.forEach((worker) => worker.go(targetTime));
+    targetSearchTime = SEARCH_TIME * (ENGINE_STRENGTH / 8);
+    let targetTimeScaled = Math.round(targetSearchTime * searchTimeCoefficient);
+    engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash}), 
+                        target = ${targetSearchTime} (${targetTimeScaled}) ms`);
+    workers.forEach((worker) => worker.go(targetTimeScaled));
 }
 
 // called from a worker each time it finishes
@@ -174,7 +178,10 @@ function engineFinishThink() {
     }
 
     let engineMoveCoords = engineMoveToCoords(engineMove);
-    engineDebugLog(`Playing [${engineMoveCoords}], eval ${(-engineMoveEval).toFixed(2)}, took ${Date.now() - startTime} ms${actualBestText}`);
+    let elapsedTime = Date.now() - startTime;
+    searchTimeCoefficient = Math.min((targetSearchTime / elapsedTime), 1);
+    engineDebugLog(`Next search time coefficient will be ${searchTimeCoefficient.toFixed(2)}`);
+    engineDebugLog(`Playing [${engineMoveCoords}], eval ${(-engineMoveEval).toFixed(2)}, took ${elapsedTime} ms${actualBestText}`);
     makeEngineMove(engineMoveCoords);
 }
 
