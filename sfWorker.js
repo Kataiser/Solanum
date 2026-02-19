@@ -43,7 +43,6 @@ class sfWorker {
     // note that this can't be a loop because SF completing is a callback
     go(totalSearchTime) {
         if (this.positionQueue.length === 0) {return;}
-        this.useTimeSearch = true;
         let undefinedPositionsCount = this.checkPositionCache();
 
         if (undefinedPositionsCount === 0) {
@@ -53,18 +52,16 @@ class sfWorker {
             return;
         }
 
-        let positionsScaled = Math.log10(undefinedPositionsCount);
-        let totalSearchTimeScaled = Math.log10(totalSearchTime);
         // derived via linear regression
-        let positionSearchAmountBase = Math.pow(10, (0.480979 + 0.862103 * positionsScaled - totalSearchTimeScaled) / -0.883468);
+        let positionSearchAmountBase = Math.pow(10, (0.480979 + 0.862103 * Math.log10(undefinedPositionsCount) - Math.log10(totalSearchTime)) / -0.883468);
 
         if (positionSearchAmountBase > 1) {
             // cap in case the regression goes way high
             this.positionSearchAmount = Math.min(Math.round(positionSearchAmountBase), Math.floor(totalSearchTime / undefinedPositionsCount));
+            this.useTimeSearch = true;
         } else {
-            // we need more precision so use nodes, less accurate model though
-            let positionSearchNodesBase = Math.pow(10, (0.169889 + 0.671984 * positionsScaled - totalSearchTimeScaled) / -0.426464);
-            this.positionSearchAmount = Math.max(20, Math.round(positionSearchNodesBase));  // stockfish doesn't let you go below 20 (lol)
+            // we need to spend even less time so use nodes
+            this.positionSearchAmount = 20;
             this.useTimeSearch = false;
         }
 
