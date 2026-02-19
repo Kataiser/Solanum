@@ -111,11 +111,10 @@ function engineStartThink() {
         workers[i % ENGINE_COUNT].setHash(workerHash);
     }
 
-    targetSearchTime = SEARCH_TIME * (ENGINE_STRENGTH / 8);
-    let targetTimeScaled = Math.round(targetSearchTime * searchTimeCoefficient);
+    targetSearchTime = Math.round(SEARCH_TIME * (ENGINE_STRENGTH / 8) * searchTimeCoefficient);
     engineDebugLog(`Analyzing ${opponentPositions.length} opponent positions across ${workersRunning} workers (hash ${workerHash}), 
-                        target = ${targetSearchTime} (${targetTimeScaled}) ms`);
-    workers.forEach((worker) => worker.go(targetTimeScaled));
+                        target = ${targetSearchTime} (${targetSearchTime}) ms`);
+    workers.forEach((worker) => worker.go(targetSearchTime));
 }
 
 // called from a worker each time it finishes
