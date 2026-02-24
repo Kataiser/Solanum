@@ -16,7 +16,7 @@ let opponentPositions;
 let startTime;
 let positionsCache;
 let targetSearchTime;
-let searchTimeCoefficient = 1;
+let searchTimeCoefficient;
 
 function initEngine() {
     console.log("Starting Solanum engine (https://github.com/Kataiser/Solanum)");
@@ -36,6 +36,9 @@ function initEngine() {
             engineDebugLog("Loaded position cache (big)");
         });
     });
+
+    searchTimeCoefficient = cpuBenchmark() / 38000000;
+    engineDebugLog(`Initial search time coefficient will be ${searchTimeCoefficient.toFixed(3)}`);
 
     for (let i = 0; i < ENGINE_COUNT; i++) {
         workers[i] = new sfWorker(i, DEBUG_LEVEL);
@@ -180,7 +183,7 @@ function engineFinishThink() {
     let engineMoveCoords = engineMoveToCoords(engineMove);
     let elapsedTime = Date.now() - startTime;
     searchTimeCoefficient = Math.min((targetSearchTime / elapsedTime), 1);
-    engineDebugLog(`Next search time coefficient will be ${searchTimeCoefficient.toFixed(2)}`);
+    engineDebugLog(`Next search time coefficient will be ${searchTimeCoefficient.toFixed(3)}`);
     engineDebugLog(`Playing [${engineMoveCoords}], eval ${(-engineMoveEval).toFixed(2)}, took ${elapsedTime} ms${actualBestText}`);
     makeEngineMove(engineMoveCoords);
 }
@@ -211,4 +214,24 @@ function engineDebugLog(log) {
     if (DEBUG_LEVEL >= 1) {
         console.log(log);
     }
+}
+
+function cpuBenchmark() {
+    let startTime = performance.now();
+    let iterations = 0;
+    let x = 1.0;
+
+    while (performance.now() - startTime < 200) {
+      for (let i = 0; i < 10000; i++) {
+          x = Math.sqrt(x + 1.0000001) * 0.9999999;
+
+          if (x > 1.22) {
+              x -= 0.11111;
+          }
+      }
+
+      iterations += 10000;
+    }
+
+    return iterations;
 }
