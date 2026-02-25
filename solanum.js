@@ -1,7 +1,7 @@
 const DEBUG_LEVEL = 1;  // 0 = no logs, 1 = most logs, 2 = engine go logs
 const ENGINE_COUNT = Math.round(window.navigator.hardwareConcurrency * 0.75);
 const ENGINE_STRENGTH = 8;  // 1 to 8 from GUI
-const SEARCH_TIME = 5000;
+const SEARCH_TIME = 2000;
 const TOTAL_HASH = 256;
 
 
@@ -139,6 +139,7 @@ function engineFinishThink() {
     let engineBestMove;
     let engineBestMoveEval = 1000;
     let actualBestText = "";
+    let totalFromCacheProportion = 0;
     evaluatedPositions = [];
     workers.forEach((worker) => evaluatedPositions = evaluatedPositions.concat(worker.localEvaluatedPositions));
 
@@ -180,10 +181,15 @@ function engineFinishThink() {
         actualBestText = ` (Actual best move was [${engineMoveToCoords(engineBestMove)}], eval ${(-engineBestMoveEval).toFixed(2)})`;
     }
 
-    let engineMoveCoords = engineMoveToCoords(engineMove);
+    workers.forEach((worker) => totalFromCacheProportion += worker.fromCacheProportion);
+    let inverseAverageFromCacheProportion = 1 - (totalFromCacheProportion / ENGINE_COUNT);
     let elapsedTime = Date.now() - startTime;
-    searchTimeCoefficient = Math.min((targetSearchTime / elapsedTime), 1);
+    let searchTimeCoefficientTarget = Math.min((targetSearchTime / elapsedTime), 1);
+    // lerp by inverseAverageFromCacheProportion between current and average between current and searchTimeCoefficientTarget
+    searchTimeCoefficient = (inverseAverageFromCacheProportion / 1.5) * (searchTimeCoefficientTarget - searchTimeCoefficient) + searchTimeCoefficient;
     engineDebugLog(`Next search time coefficient will be ${searchTimeCoefficient.toFixed(3)}`);
+
+    let engineMoveCoords = engineMoveToCoords(engineMove);
     engineDebugLog(`Playing [${engineMoveCoords}], eval ${(-engineMoveEval).toFixed(2)}, took ${elapsedTime} ms${actualBestText}`);
     makeEngineMove(engineMoveCoords);
 }

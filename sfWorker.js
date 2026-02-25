@@ -20,6 +20,7 @@ class sfWorker {
         this.hashfull = 0;
         this.positionSearchAmount = 0;
         this.localEvaluatedPositions = [];
+        this.fromCacheProportion = 0;
     }
 
     setHash(hash) {
@@ -44,6 +45,8 @@ class sfWorker {
     go(totalSearchTime) {
         if (this.positionQueue.length === 0) {return;}
         let undefinedPositionsCount = this.checkPositionCache();
+        this.fromCacheProportion = (this.positionQueue.length - undefinedPositionsCount) / this.positionQueue.length;
+        this.workerDebugLog(`Proportion from cache is ${this.fromCacheProportion.toFixed(3)}`, true);
 
         if (undefinedPositionsCount === 0) {
             this.workerDebugLog("All positions are from cache, skipping regressions");
