@@ -21,6 +21,7 @@ class sfWorker {
         this.positionSearchAmount = 0;
         this.localEvaluatedPositions = [];
         this.fromCacheProportion = 0;
+        this.expectedSearchFinishTime = 0;
     }
 
     setHash(hash) {
@@ -68,6 +69,7 @@ class sfWorker {
             this.useTimeSearch = false;
         }
 
+        this.expectedSearchFinishTime = Date.now() + totalSearchTime;
         let goUnit = this.useTimeSearch ? "ms" : "nodes";
         this.workerDebugLog(`Going for ${this.positionSearchAmount} ${goUnit} each for ${undefinedPositionsCount} positions`);
         this.goEach();
@@ -94,7 +96,19 @@ class sfWorker {
         let goCommand;
 
         if (this.useTimeSearch) {
-            goCommand = `go movetime ${this.positionSearchAmount}`;
+            let positionSearchTime = this.positionSearchAmount;
+
+            // fill full search time when possible
+            if (this.currentPositionIndex === this.positionQueue.length - 1) {
+                let timeRemaining = this.expectedSearchFinishTime - Date.now();
+
+                if (timeRemaining > positionSearchTime) {
+                    positionSearchTime = timeRemaining;
+                    this.workerDebugLog(`Filling search time from ${this.positionSearchAmount} ms to ${timeRemaining} ms`, true);
+                }
+            }
+
+            goCommand = `go movetime ${positionSearchTime}`;
         } else {
             goCommand = `go nodes ${this.positionSearchAmount}`;
         }
